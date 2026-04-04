@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>humankey Example</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #0a0a0a;
+      color: #e0e0e0;
+    }
+    h1 { color: #fff; }
+    .section {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    input {
+      background: #0a0a0a;
+      border: 1px solid #444;
+      color: #e0e0e0;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 80px;
+      text-transform: uppercase;
+      text-align: center;
+      letter-spacing: 4px;
+      font-weight: bold;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .success { background: #052e16; color: #4ade80; }
+    .error { background: #2a0a0a; color: #f87171; }
+    .info { background: #0a1a2e; color: #60a5fa; }
+    label { display: block; margin: 8px 0 4px; font-size: 13px; color: #999; }
+    textarea {
+      width: 100%;
+      background: #0a0a0a;
+      border: 1px solid #444;
+      color: #e0e0e0;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 13px;
+      resize: vertical;
+    }
+    .code-display {
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 8px;
+      color: #fbbf24;
+      text-align: center;
+      padding: 16px;
+      background: #1a1500;
+      border: 2px dashed #fbbf24;
+      border-radius: 8px;
+      margin: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>humankey</h1>
+  <p>Per-action hardware key verification with confirmation.</p>
+
+  <!-- Step 1: Register Key -->
+  <div class="section">
+    <h3>1. Register Hardware Key</h3>
+    <p style="font-size: 13px; color: #999;">One-time setup. Plug in your YubiKey and click register.</p>
+    <button id="registerBtn" onclick="registerKey()">Register YubiKey</button>
+    <div id="registerStatus"></div>
+  </div>
+
+  <!-- Step 2: Send Message -->
+  <div class="section">
+    <h3>2. Send a Message (requires tap)</h3>
+    <label>To:</label>
+    <input type="text" id="msgTo" value="bob" style="width: 200px; letter-spacing: normal; text-transform: none;">
+    <label>Message:</label>
+    <textarea id="msgBody" rows="2">Hello from humankey!</textarea>
+
+    <button id="confirmBtn" onclick="startConfirmation()" style="margin-top: 12px;">
+      Confirm & Tap to Send
+    </button>
+
+    <!-- Confirmation code display -->
+    <div id="confirmSection" style="display: none; margin-top: 16px;">
+      <p style="font-size: 13px;">Type this confirmation code to verify you've read the message details:</p>
+      <div id="codeDisplay" class="code-display"></div>
+      <div style="text-align: center; margin-top: 8px;">
+        <input type="text" id="codeInput" maxlength="4" placeholder="____">
+        <button onclick="tapToSend()" style="margin-left: 8px;">Tap YubiKey</button>
+      </div>
+    </div>
+
+    <div id="sendStatus"></div>
+  </div>
+
+  <script src="bundle.js" type="module"></script>
+</body>
+</html>

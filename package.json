@@ -1,0 +1,90 @@
+{
+  "name": "humankey",
+  "version": "0.2.0",
+  "description": "Per-action hardware key (YubiKey/FIDO2) verification SDK with built-in confirmation step",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./verify": {
+      "import": {
+        "types": "./dist/verify.d.ts",
+        "default": "./dist/verify.mjs"
+      },
+      "require": {
+        "types": "./dist/verify.d.cts",
+        "default": "./dist/verify.cjs"
+      }
+    },
+    "./express": {
+      "import": {
+        "types": "./dist/express.d.ts",
+        "default": "./dist/express.mjs"
+      },
+      "require": {
+        "types": "./dist/express.d.cts",
+        "default": "./dist/express.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "webauthn",
+    "fido2",
+    "yubikey",
+    "hardware-key",
+    "authentication",
+    "human-verification",
+    "per-action",
+    "security"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@simplewebauthn/server": "^13.3.0"
+  },
+  "peerDependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
+    "express": "^4.18.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@simplewebauthn/browser": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
+    "@types/express": "^5.0.6",
+    "@types/supertest": "^7.2.0",
+    "express": "^5.2.1",
+    "supertest": "^7.2.2",
+    "tsup": "^8.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
