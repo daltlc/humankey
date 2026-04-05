@@ -1,6 +1,6 @@
 {
   "name": "humankey",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Per-action hardware key (YubiKey/FIDO2) verification SDK with built-in confirmation step",
   "type": "module",
   "exports": {
