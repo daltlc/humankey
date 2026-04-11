@@ -25,7 +25,12 @@ humankey/
 │   ├── verify.ts             # Server-side proof verification (humankey/verify)
 │   ├── registration-verify.ts # Server-side registration verification
 │   ├── challenge.ts          # Server-side challenge generation
+│   ├── adapter-core.ts       # Shared handler logic for all framework adapters
 │   ├── express.ts            # Express framework adapter (humankey/express)
+│   ├── nextjs.ts             # Next.js App Router adapter (humankey/nextjs)
+│   ├── hono.ts               # Hono adapter (humankey/hono)
+│   ├── fastify.ts            # Fastify plugin (humankey/fastify)
+│   ├── react.ts              # React hook (humankey/react)
 │   ├── hash.ts               # SHA-256 canonical JSON hashing (isomorphic)
 │   ├── types.ts              # All type definitions
 │   └── errors.ts             # Typed error classes
@@ -36,10 +41,14 @@ humankey/
 └── examples/basic/           # Working Express + HTML example
 ```
 
-**Three entry points:**
+**Seven entry points:**
 - `humankey` — browser SDK (confirm + tap + register)
 - `humankey/verify` — server-side verification, registration, and challenge generation (any JS runtime)
 - `humankey/express` — Express router with built-in challenge lifecycle, registration, and verification
+- `humankey/nextjs` — Next.js App Router route handlers
+- `humankey/hono` — Hono app with humankey routes
+- `humankey/fastify` — Fastify plugin
+- `humankey/react` — React hook for the confirm → tap flow
 
 ## How It Works
 
@@ -61,10 +70,18 @@ npm install humankey @simplewebauthn/browser
 
 `@simplewebauthn/browser` is a peer dependency (only needed in the browser).
 
-For the Express adapter:
+For framework adapters, install the framework alongside humankey:
 
 ```bash
-npm install humankey express
+npm install humankey express        # Express
+npm install humankey hono           # Hono
+npm install humankey fastify        # Fastify
+```
+
+For the React hook:
+
+```bash
+npm install humankey @simplewebauthn/browser react
 ```
 
 ## Usage
@@ -141,6 +158,146 @@ class RedisChallengeStore implements ChallengeStore {
     return challenge;
   }
 }
+```
+
+### Next.js Adapter
+
+For Next.js App Router. Each route handler is a separate file:
+
+```ts
+// app/api/humankey/challenge/route.ts
+import { createHumanKeyHandlers } from 'humankey/nextjs';
+import type { TapCredential } from 'humankey/verify';
+
+const credentials = new Map<string, TapCredential>();
+
+const hk = createHumanKeyHandlers({
+  rpID: 'example.com',
+  rpName: 'My App',
+  origin: 'https://example.com',
+  getCredential: async (id) => credentials.get(id) ?? null,
+  onRegister: async (credential) => {
+    credentials.set(credential.id, credential);
+  },
+});
+
+export const POST = hk.challenge;
+```
+
+```ts
+// app/api/humankey/register/route.ts
+export const POST = hk.register;
+
+// app/api/humankey/verify/route.ts
+export const POST = hk.verify;
+```
+
+Uses the Web `Request`/`Response` API — no Next.js-specific types required.
+
+### Hono Adapter
+
+```ts
+import { Hono } from 'hono';
+import { createHumanKeyApp } from 'humankey/hono';
+import type { TapCredential } from 'humankey/verify';
+
+const app = new Hono();
+const credentials = new Map<string, TapCredential>();
+
+app.route('/api', createHumanKeyApp({
+  rpID: 'example.com',
+  rpName: 'My App',
+  origin: 'https://example.com',
+  getCredential: async (id) => credentials.get(id) ?? null,
+  onRegister: async (credential) => {
+    credentials.set(credential.id, credential);
+  },
+}));
+
+export default app;
+```
+
+### Fastify Adapter
+
+```ts
+import Fastify from 'fastify';
+import { humanKeyPlugin } from 'humankey/fastify';
+import type { TapCredential } from 'humankey/verify';
+
+const app = Fastify();
+const credentials = new Map<string, TapCredential>();
+
+app.register(humanKeyPlugin, {
+  prefix: '/api',
+  rpID: 'example.com',
+  rpName: 'My App',
+  origin: 'https://example.com',
+  getCredential: async (id) => credentials.get(id) ?? null,
+  onRegister: async (credential) => {
+    credentials.set(credential.id, credential);
+  },
+});
+
+app.listen({ port: 3000 });
+```
+
+### React Hook
+
+The `useHumanKey` hook manages the full client-side flow: fetch challenge, show confirmation code, trigger hardware key tap, and verify.
+
+```tsx
+import { useHumanKey } from 'humankey/react';
+
+function TransferButton({ credentialId }: { credentialId: string }) {
+  const {
+    status,
+    confirmationCode,
+    error,
+    startAction,
+    confirmCode,
+    reset,
+  } = useHumanKey({ rpID: 'example.com', apiBase: '/api' });
+
+  const handleTransfer = async () => {
+    // Step 1: Start the action — fetches challenge, generates confirmation code
+    await startAction(
+      { action: 'transfer', data: { to: 'bob', amount: 100 } },
+      [{ id: credentialId }],
+    );
+    // status is now 'confirming', confirmationCode is e.g. 'A7X3'
+  };
+
+  const handleConfirm = async (userInput: string) => {
+    // Step 2: User typed the code — triggers YubiKey tap and server verification
+    const proof = await confirmCode(userInput);
+    // status is now 'verified', proof contains the signed assertion
+  };
+
+  return (
+    <div>
+      {status === 'idle' && <button onClick={handleTransfer}>Send $100</button>}
+      {status === 'confirming' && (
+        <div>
+          <p>Type this code: <strong>{confirmationCode}</strong></p>
+          <input onKeyDown={(e) => {
+            if (e.key === 'Enter') handleConfirm(e.currentTarget.value);
+          }} />
+        </div>
+      )}
+      {status === 'tapping' && <p>Tap your YubiKey...</p>}
+      {status === 'verified' && <p>Transfer approved!</p>}
+      {status === 'error' && <p>Error: {error?.message} <button onClick={reset}>Retry</button></p>}
+    </div>
+  );
+}
+```
+
+The hook also exposes a `register` function for one-time key registration:
+
+```tsx
+const { register } = useHumanKey({ rpID: 'example.com' });
+const result = await register('alice');
+// result.credentialId — store this for future use
 ```
 
 ### Server (manual — challenge + registration + verify)
@@ -310,7 +467,11 @@ For production, consider:
 |---|---|---|
 | `humankey` | Browser | `createConfirmation`, `requestTap`, `registerKey`, `isHumanKeySupported`, `hashAction`, `HumanKeyError` |
 | `humankey/verify` | Server (any JS runtime) | `verifyTapProof`, `verifyRegistration`, `createChallenge`, `HumanKeyError` |
-| `humankey/express` | Server (Express) | `createHumanKeyRouter`, `MemoryChallengeStore`, `ChallengeStore`, `HumanKeyExpressConfig` |
+| `humankey/express` | Server (Express) | `createHumanKeyRouter`, `MemoryChallengeStore`, `ChallengeStore` |
+| `humankey/nextjs` | Server (Next.js App Router) | `createHumanKeyHandlers`, `MemoryChallengeStore`, `ChallengeStore` |
+| `humankey/hono` | Server (Hono) | `createHumanKeyApp`, `MemoryChallengeStore`, `ChallengeStore` |
+| `humankey/fastify` | Server (Fastify) | `humanKeyPlugin`, `MemoryChallengeStore`, `ChallengeStore` |
+| `humankey/react` | Browser (React) | `useHumanKey` |
 
 ### Error Codes
 
