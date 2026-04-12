@@ -31,4 +31,8 @@ function getCredentialList() {
   }));
 }
 
-export { hk, getCredentialList };
+function clearCredentials() {
+  credentials.clear();
+}
+
+export { hk, getCredentialList, clearCredentials };

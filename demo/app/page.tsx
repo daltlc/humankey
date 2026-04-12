@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useHumanKey } from 'humankey/react';
 import { RegisterStep } from '@/components/register-step';
 import { SendForm } from '@/components/send-form';
@@ -25,23 +25,54 @@ export default function Home() {
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
 
+  const [hasKeys, setHasKeys] = useState(false);
+
   const hk = useHumanKey({ rpID: 'localhost' });
+
+  const fetchCredentials = useCallback(async (): Promise<Credential[]> => {
+    const res = await fetch('/api/credentials');
+    const data = await res.json();
+    return data.credentials ?? [];
+  }, []);
 
   const handleRegister = useCallback(async () => {
     setRegisterLoading(true);
     setRegisterError(null);
     try {
       await hk.register('demo-user');
-      const res = await fetch('/api/credentials');
-      const data = await res.json();
-      setCredentials(data.credentials);
-      setStep('form');
     } catch (err) {
+      // Registration may have succeeded server-side even if the client threw
+      // (e.g. on first PIN setup). Check if credentials exist before failing.
+      const existing = await fetchCredentials();
+      if (existing.length > 0) {
+        setCredentials(existing);
+        setHasKeys(true);
+        setStep('form');
+        setRegisterLoading(false);
+        return;
+      }
       setRegisterError(err instanceof Error ? err.message : 'Registration failed');
-    } finally {
       setRegisterLoading(false);
+      return;
     }
-  }, [hk]);
+    const creds = await fetchCredentials();
+    setCredentials(creds);
+    setHasKeys(creds.length > 0);
+    setStep('form');
+    setRegisterLoading(false);
+  }, [hk, fetchCredentials]);
+
+  // Check if keys already exist on mount (e.g. after page refresh while server still running)
+  useEffect(() => {
+    fetchCredentials().then((creds) => setHasKeys(creds.length > 0));
+  }, [fetchCredentials]);
+
+  const handleResetKeys = useCallback(async () => {
+    await fetch('/api/credentials', { method: 'DELETE' });
+    setCredentials([]);
+    setHasKeys(false);
+    setRegisterError(null);
+  }, []);
 
   const handleSend = useCallback(async (recipient: string, amount: number) => {
     setTransfer({ recipient, amount });
@@ -75,8 +106,10 @@ export default function Home() {
         {step === 'register' && (
           <RegisterStep
             onRegister={handleRegister}
+            onReset={handleResetKeys}
             isLoading={registerLoading}
             error={registerError}
+            hasKeys={hasKeys}
           />
         )}
 

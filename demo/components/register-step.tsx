@@ -2,11 +2,13 @@
 
 interface RegisterStepProps {
   onRegister: () => Promise<void>;
+  onReset: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
+  hasKeys: boolean;
 }
 
-export function RegisterStep({ onRegister, isLoading, error }: RegisterStepProps) {
+export function RegisterStep({ onRegister, onReset, isLoading, error, hasKeys }: RegisterStepProps) {
   return (
     <div className="text-center space-y-6">
       <div className="space-y-2">
@@ -26,6 +28,16 @@ export function RegisterStep({ onRegister, isLoading, error }: RegisterStepProps
 
       {error && (
         <p className="text-red-400 text-sm">{error}</p>
+      )}
+
+      {hasKeys && (
+        <button
+          onClick={onReset}
+          disabled={isLoading}
+          className="text-gray-500 text-xs hover:text-gray-300 transition-colors disabled:opacity-50"
+        >
+          Reset registered keys
+        </button>
       )}
     </div>
   );
