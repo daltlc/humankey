@@ -26,18 +26,14 @@ export function RegisterStep({ onRegister, onReset, isLoading, error, hasKeys }:
         {isLoading ? 'Waiting for key...' : 'Register Hardware Key'}
       </button>
 
-      {error && (
-        <p className="text-red-400 text-sm">{error}</p>
+      {isLoading && (
+        <p className="text-gray-500 text-xs">
+          Your hardware key will ask for a PIN — this is normal.
+        </p>
       )}
 
-      {hasKeys && (
-        <button
-          onClick={onReset}
-          disabled={isLoading}
-          className="text-gray-500 text-xs hover:text-gray-300 transition-colors disabled:opacity-50"
-        >
-          Reset registered keys
-        </button>
+      {error && (
+        <p className="text-red-400 text-sm">{error}</p>
       )}
     </div>
   );

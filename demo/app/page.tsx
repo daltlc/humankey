@@ -26,6 +26,7 @@ export default function Home() {
   const [registerError, setRegisterError] = useState<string | null>(null);
 
   const [hasKeys, setHasKeys] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   const hk = useHumanKey({ rpID: 'localhost' });
 
@@ -62,9 +63,16 @@ export default function Home() {
     setRegisterLoading(false);
   }, [hk, fetchCredentials]);
 
-  // Check if keys already exist on mount (e.g. after page refresh while server still running)
+  // Check if keys already exist on mount — skip to form if so
   useEffect(() => {
-    fetchCredentials().then((creds) => setHasKeys(creds.length > 0));
+    fetchCredentials().then((creds) => {
+      const keysExist = creds.length > 0;
+      setHasKeys(keysExist);
+      if (keysExist) {
+        setCredentials(creds);
+        setStep('form');
+      }
+    });
   }, [fetchCredentials]);
 
   const handleResetKeys = useCallback(async () => {
@@ -72,7 +80,12 @@ export default function Home() {
     setCredentials([]);
     setHasKeys(false);
     setRegisterError(null);
-  }, []);
+    setTransfer(null);
+    setResetMessage('Keys cleared successfully');
+    hk.reset();
+    setStep('register');
+    setTimeout(() => setResetMessage(null), 3000);
+  }, [hk]);
 
   const handleSend = useCallback(async (recipient: string, amount: number) => {
     setTransfer({ recipient, amount });
@@ -101,6 +114,21 @@ export default function Home() {
           <span className="text-gray-400">human</span>key
         </h1>
       </div>
+
+      <div className="text-center mb-4">
+        <button
+          onClick={handleResetKeys}
+          className="text-gray-500 text-xs hover:text-gray-300 transition-colors"
+        >
+          Clear server credentials
+        </button>
+      </div>
+
+      {resetMessage && (
+        <div className="mb-4 text-center text-sm text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg py-2 px-4">
+          {resetMessage}
+        </div>
+      )}
 
       <div className="bg-gray-900/50 border border-gray-800 rounded-2xl p-6">
         {step === 'register' && (

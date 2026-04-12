@@ -1,14 +1,23 @@
 import { createHumanKeyHandlers, MemoryChallengeStore } from 'humankey/nextjs';
 import type { TapCredential } from 'humankey/verify';
 
-const credentials = new Map<string, TapCredential>();
+// Persist in-memory state across Next.js HMR re-evaluations
+declare global {
+  // eslint-disable-next-line no-var
+  var __humankeyChallengeStore: MemoryChallengeStore | undefined;
+  // eslint-disable-next-line no-var
+  var __humankeyCredentials: Map<string, TapCredential> | undefined;
+}
+
+const challengeStore = global.__humankeyChallengeStore ??= new MemoryChallengeStore();
+const credentials = global.__humankeyCredentials ??= new Map<string, TapCredential>();
 
 const hk = createHumanKeyHandlers({
   rpID: 'localhost',
   rpName: 'HumanKey Demo',
   origin: 'http://localhost:3000',
   requireUserVerification: false,
-  challengeStore: new MemoryChallengeStore(),
+  challengeStore,
   getCredential: async (id) => credentials.get(id) ?? null,
   onRegister: async (cred) => {
     credentials.set(cred.id, cred);

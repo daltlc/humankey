@@ -1,54 +1,22 @@
 # humankey
 
-Per-action hardware key (YubiKey/FIDO2) verification SDK with built-in confirmation step.
+## The Problem
 
-Proves a human physically tapped a security key **and** confirmed they understood what they were approving — for every action, not just login.
+WebAuthn is great for login — but login only proves who you are, not what you approved. A compromised session can silently initiate transfers, change settings, or delete data without the user ever touching their key again.
 
-## Tech Stack
+There's no standard way to require a hardware key tap **per action**, and no way to prove the user actually read what they were approving before they tapped.
 
-- **Language**: TypeScript (strict mode)
-- **Build**: tsup (dual ESM/CJS output)
-- **Test**: vitest
-- **Core dependency**: [@simplewebauthn/browser](https://simplewebauthn.dev/) (peer) + [@simplewebauthn/server](https://simplewebauthn.dev/) (verify)
-- **Target runtimes**: Browser (client SDK), Node/Deno/Bun/Edge (verify utility)
+## The Solution
 
-## Architecture
+humankey is a TypeScript SDK that adds per-action hardware key verification with a built-in confirmation step. For every sensitive action, the user:
 
-```
-humankey/
-├── src/
-│   ├── index.ts              # Browser exports: createConfirmation, requestTap, registerKey, isHumanKeySupported
-│   ├── confirm.ts            # Confirmation code generation + validation
-│   ├── tap.ts                # WebAuthn assertion with action binding
-│   ├── register.ts           # One-time hardware key registration
-│   ├── support.ts            # Feature detection
-│   ├── verify.ts             # Server-side proof verification (humankey/verify)
-│   ├── registration-verify.ts # Server-side registration verification
-│   ├── challenge.ts          # Server-side challenge generation
-│   ├── adapter-core.ts       # Shared handler logic for all framework adapters
-│   ├── express.ts            # Express framework adapter (humankey/express)
-│   ├── nextjs.ts             # Next.js App Router adapter (humankey/nextjs)
-│   ├── hono.ts               # Hono adapter (humankey/hono)
-│   ├── fastify.ts            # Fastify plugin (humankey/fastify)
-│   ├── react.ts              # React hook (humankey/react)
-│   ├── hash.ts               # SHA-256 canonical JSON hashing (isomorphic)
-│   ├── types.ts              # All type definitions
-│   └── errors.ts             # Typed error classes
-├── tests/                    # vitest test suite
-│   ├── helpers/
-│   │   └── soft-authenticator.ts  # Software FIDO2 authenticator for integration tests
-│   └── integration.test.ts   # End-to-end tests against real @simplewebauthn/server
-└── examples/basic/           # Working Express + HTML example
-```
+1. **Reads** the action details and a confirmation code derived from the action itself
+2. **Types** the code back (proving they read and understood)
+3. **Taps** their hardware key (proving physical presence)
 
-**Seven entry points:**
-- `humankey` — browser SDK (confirm + tap + register)
-- `humankey/verify` — server-side verification, registration, and challenge generation (any JS runtime)
-- `humankey/express` — Express router with built-in challenge lifecycle, registration, and verification
-- `humankey/nextjs` — Next.js App Router route handlers
-- `humankey/hono` — Hono app with humankey routes
-- `humankey/fastify` — Fastify plugin
-- `humankey/react` — React hook for the confirm → tap flow
+The server independently re-derives everything — a compromised client can't fake approval for a different action.
+
+Drop-in adapters for Express, Next.js, Hono, and Fastify. A React hook for the client. Works with any FIDO2 key (YubiKey, Titan, platform authenticators).
 
 ## How It Works
 
@@ -165,22 +133,38 @@ class RedisChallengeStore implements ChallengeStore {
 For Next.js App Router. Each route handler is a separate file:
 
 ```ts
-// app/api/humankey/challenge/route.ts
-import { createHumanKeyHandlers } from 'humankey/nextjs';
+// lib/humankey-config.ts
+import { createHumanKeyHandlers, MemoryChallengeStore } from 'humankey/nextjs';
 import type { TapCredential } from 'humankey/verify';
 
-const credentials = new Map<string, TapCredential>();
+// Persist in-memory state across Next.js HMR re-evaluations.
+// Without this, dev mode re-creates the store between requests,
+// causing "Challenge not found or expired" errors.
+declare global {
+  // eslint-disable-next-line no-var
+  var __humankeyChallengeStore: MemoryChallengeStore | undefined;
+  // eslint-disable-next-line no-var
+  var __humankeyCredentials: Map<string, TapCredential> | undefined;
+}
 
-const hk = createHumanKeyHandlers({
+const challengeStore = global.__humankeyChallengeStore ??= new MemoryChallengeStore();
+const credentials = global.__humankeyCredentials ??= new Map<string, TapCredential>();
+
+export const hk = createHumanKeyHandlers({
   rpID: 'example.com',
   rpName: 'My App',
   origin: 'https://example.com',
+  challengeStore,
   getCredential: async (id) => credentials.get(id) ?? null,
   onRegister: async (credential) => {
     credentials.set(credential.id, credential);
   },
 });
+```
 
+```ts
+// app/api/humankey/challenge/route.ts
+import { hk } from '@/lib/humankey-config';
 export const POST = hk.challenge;
 ```
 
@@ -501,6 +485,52 @@ For production, consider:
 | `requireUserVerification` | `true` | Throw if UV flag is not set |
 | `allowedAAGUIDs` | `undefined` | Array of allowed authenticator AAGUIDs. If set and non-empty, throws `AAGUID_NOT_ALLOWED` for unlisted models. |
 
+## Architecture
+
+```
+humankey/
+├── src/
+│   ├── index.ts              # Browser exports: createConfirmation, requestTap, registerKey, isHumanKeySupported
+│   ├── confirm.ts            # Confirmation code generation + validation
+│   ├── tap.ts                # WebAuthn assertion with action binding
+│   ├── register.ts           # One-time hardware key registration
+│   ├── support.ts            # Feature detection
+│   ├── verify.ts             # Server-side proof verification (humankey/verify)
+│   ├── registration-verify.ts # Server-side registration verification
+│   ├── challenge.ts          # Server-side challenge generation
+│   ├── adapter-core.ts       # Shared handler logic for all framework adapters
+│   ├── express.ts            # Express framework adapter (humankey/express)
+│   ├── nextjs.ts             # Next.js App Router adapter (humankey/nextjs)
+│   ├── hono.ts               # Hono adapter (humankey/hono)
+│   ├── fastify.ts            # Fastify plugin (humankey/fastify)
+│   ├── react.ts              # React hook (humankey/react)
+│   ├── hash.ts               # SHA-256 canonical JSON hashing (isomorphic)
+│   ├── types.ts              # All type definitions
+│   └── errors.ts             # Typed error classes
+├── tests/                    # vitest test suite
+│   ├── helpers/
+│   │   └── soft-authenticator.ts  # Software FIDO2 authenticator for integration tests
+│   └── integration.test.ts   # End-to-end tests against real @simplewebauthn/server
+└── examples/basic/           # Working Express + HTML example
+```
+
+**Seven entry points:**
+- `humankey` — browser SDK (confirm + tap + register)
+- `humankey/verify` — server-side verification, registration, and challenge generation (any JS runtime)
+- `humankey/express` — Express router with built-in challenge lifecycle, registration, and verification
+- `humankey/nextjs` — Next.js App Router route handlers
+- `humankey/hono` — Hono app with humankey routes
+- `humankey/fastify` — Fastify plugin
+- `humankey/react` — React hook for the confirm → tap flow
+
+## Tech Stack
+
+- **Language**: TypeScript (strict mode)
+- **Build**: tsup (dual ESM/CJS output)
+- **Test**: vitest
+- **Core dependency**: [@simplewebauthn/browser](https://simplewebauthn.dev/) (peer) + [@simplewebauthn/server](https://simplewebauthn.dev/) (verify)
+- **Target runtimes**: Browser (client SDK), Node/Deno/Bun/Edge (verify utility)
+
 ## Development
 
 ```bash
@@ -519,6 +549,21 @@ npm install
 npm start
 # → open http://localhost:3000
 ```
+
+### Running the demo app
+
+```bash
+cd demo
+npm install
+npm run dev
+# → open http://localhost:3000
+```
+
+A Next.js app that walks through the full humankey flow: register a hardware key → fill in a send-money form → confirm with code + key tap.
+
+**Hardware key PIN behavior:** Your hardware key (YubiKey, etc.) has its own PIN that lives on the physical device. This PIN is **always** required during registration and verification — it's the key's own security layer and is completely independent of humankey. The first time you use a key, the browser will ask you to **set** a PIN. On subsequent uses, it will ask you to **enter** it. The "Clear server credentials" button in the demo only removes the server's record of your key — it cannot clear the PIN from the physical hardware. This is expected behavior.
+
+**Next.js note:** The demo uses `globalThis` to persist in-memory challenge and credential state across Next.js hot module reloads. Without this, the `MemoryChallengeStore` would be re-created between API requests in dev mode, causing "Challenge not found or expired" errors. See `demo/lib/humankey-config.ts` for the pattern. In production, use a persistent store (Redis, database) instead.
 
 ## Changelog
 
