@@ -12,10 +12,14 @@ declare global {
 const challengeStore = global.__humankeyChallengeStore ??= new MemoryChallengeStore();
 const credentials = global.__humankeyCredentials ??= new Map<string, TapCredential>();
 
+// Support both localhost dev and production deployment
+const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
+const origin = process.env.NEXT_PUBLIC_ORIGIN || 'http://localhost:3000';
+
 const hk = createHumanKeyHandlers({
-  rpID: 'localhost',
+  rpID,
   rpName: 'HumanKey Demo',
-  origin: 'http://localhost:3000',
+  origin,
   requireUserVerification: false,
   challengeStore,
   getCredential: async (id) => credentials.get(id) ?? null,
@@ -23,7 +27,6 @@ const hk = createHumanKeyHandlers({
     credentials.set(cred.id, cred);
   },
   onVerify: async (result, _action) => {
-    // Update the stored counter to prevent replay
     const cred = [...credentials.values()].find(
       (c) => result.newCounter > c.counter,
     );

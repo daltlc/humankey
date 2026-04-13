@@ -15,7 +15,7 @@ interface Transfer {
 
 interface Credential {
   id: string;
-  transports?: string[];
+  transports?: AuthenticatorTransport[];
 }
 
 export default function Home() {
@@ -28,7 +28,8 @@ export default function Home() {
   const [hasKeys, setHasKeys] = useState(false);
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
-  const hk = useHumanKey({ rpID: 'localhost' });
+  const rpID = process.env.NEXT_PUBLIC_RP_ID || 'localhost';
+  const hk = useHumanKey({ rpID });
 
   const fetchCredentials = useCallback(async (): Promise<Credential[]> => {
     const res = await fetch('/api/credentials');

@@ -1,5 +1,9 @@
 # humankey
 
+Per-action hardware key verification for sensitive operations. Proves a human physically approved each action — not just that they logged in.
+
+**[Live Demo](https://demo-two-beta-52.vercel.app)** | **[npm](https://www.npmjs.com/package/humankey)**
+
 ## The Problem
 
 WebAuthn is great for login — but login only proves who you are, not what you approved. A compromised session can silently initiate transfers, change settings, or delete data without the user ever touching their key again.
