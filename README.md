@@ -2,7 +2,7 @@
 
 Per-action hardware key verification for sensitive operations. Proves a human physically approved each action — not just that they logged in.
 
-**[Live Demo](https://demo-two-beta-52.vercel.app)** | **[npm](https://www.npmjs.com/package/humankey)**
+**[Live Demo](https://humankey-demo.vercel.app/)** | **[npm](https://www.npmjs.com/package/humankey)**
 
 ## The Problem
 
