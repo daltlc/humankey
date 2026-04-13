@@ -6,7 +6,7 @@ Per-action hardware key verification for sensitive operations. Proves a human ph
 
 ## The Problem
 
-WebAuthn is great for login — but login only proves who you are, not what you approved. A compromised session can silently initiate transfers, change settings, or delete data without the user ever touching their key again.
+WebAuthn is great for login, but login only proves who you are, not what you approved. A compromised session can silently initiate transfers, change settings, or delete data without the user ever touching their key again.
 
 There's no standard way to require a hardware key tap **per action**, and no way to prove the user actually read what they were approving before they tapped.
 
